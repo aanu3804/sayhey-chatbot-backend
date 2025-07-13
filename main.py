@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from firebase import store_message, get_conversation
+from firebase import store_message, get_conversation, increment_warning_count, get_warning_count, is_session_cancelled, reset_warning_count
 import os, requests
 from dotenv import load_dotenv
 import re
@@ -19,7 +19,53 @@ CORS(app)
 print("GODEL model loaded.")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-BAD_WORDS = ["sex", "fuck", "nude", "horny", "boobs"]
+BAD_WORDS = [
+    "sex", "fuck", "nude", "horny", "boobs", "porn", "dick", "cock", "pussy", "vagina", 
+    "penis", "ass", "bitch", "slut", "whore", "cum", "suck", "blow", "fucking", "shit",
+    "damn", "bastard", "motherfucker", "cunt", "twat", "pornography", "erotic", "sexy",
+    "hot", "seductive", "intimate", "bedroom", "naked", "nude", "undress", "strip"
+]
+
+def contains_explicit_language(text):
+    """Use AI to check if text contains explicit or inappropriate language"""
+    try:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": "llama3-70b-8192",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are a content moderation system. Analyze the given text and determine if it contains explicit, inappropriate, or offensive language. Consider sexual content, profanity, hate speech, or any content that would be inappropriate for a supportive chatbot environment. Respond with ONLY 'YES' if inappropriate content is detected, or 'NO' if the content is appropriate."
+                },
+                {
+                    "role": "user",
+                    "content": f"Analyze this text: '{text}'\n\nIs this text inappropriate or explicit? Respond with only YES or NO."
+                }
+            ],
+            "temperature": 0.1,
+            "max_tokens": 10
+        }
+
+        response = requests.post(url, headers=headers, json=payload)
+        
+        if response.status_code == 200:
+            result = response.json()["choices"][0]["message"]["content"].strip().upper()
+            print(f"🤖 AI Content Check for '{text}': {result}")
+            return result == "YES"
+        else:
+            print(f"❌ AI content check failed: {response.status_code}")
+            # Fallback to basic check if AI fails
+            return any(bad_word in text.lower() for bad_word in BAD_WORDS)
+            
+    except Exception as e:
+        print(f"❌ Exception in AI content check: {e}")
+        # Fallback to basic check if AI fails
+        return any(bad_word in text.lower() for bad_word in BAD_WORDS)
 
 def detect_language(text):
     hindi_chars = sum(1 for c in text if '\u0900' <= c <= '\u097F')
@@ -119,11 +165,51 @@ def chat():
     data = request.get_json()
     uid = data["user_id"]
     user_msg = data["message"]
+    
+    print(f"📨 Received message from user {uid}: '{user_msg}'")
 
-    if any(bad in user_msg.lower() for bad in BAD_WORDS):
+    # Check if user is permanently flagged due to inappropriate behavior
+    current_warnings = get_warning_count(uid)
+    print(f"🔍 User {uid} has {current_warnings} warnings")
+    
+    if current_warnings >= 3:
+        print(f"🚫 User {uid} is banned (has {current_warnings} warnings) - returning ban message")
+        return jsonify({
+            "response": "Due to your inappropriate behaviour, You can't chat with SayHey Assistant.",
+            "session_cancelled": True
+        }), 403
+
+    # Check for explicit language
+    if contains_explicit_language(user_msg):
+        print(f"🚨 User {uid} used explicit language: '{user_msg}'")
+        warning_count = increment_warning_count(uid)
+        print(f"⚠️ Warning count incremented to: {warning_count}")
         store_message(uid, "user", user_msg)
-        return jsonify({"response": "⚠️ This kind of language isn't allowed. Please speak kindly or I’ll end the session."})
+        
+        if warning_count == 1:
+            warning_msg = "⚠️ First warning: Please use respectful language. This is a safe space for supportive conversation."
+        elif warning_count == 2:
+            warning_msg = "⚠️ Second warning: Inappropriate language is not tolerated. One more violation will result in permanent ban from SayHey Assistant."
+        else:  # warning_count >= 3
+            warning_msg = "🚫 You have been permanently banned from SayHey Assistant due to repeated inappropriate behaviour."
+            print(f"🚫 User {uid} has been permanently banned!")
+        
+        store_message(uid, "system", warning_msg)
+        
+        # If this was the 3rd warning, immediately check if user should be banned
+        if warning_count >= 3:
+            print(f"🚫 User {uid} reached 3 warnings - checking ban status")
+            # Double-check the warning count from database
+            final_warning_count = get_warning_count(uid)
+            print(f"🔍 Final warning count from DB: {final_warning_count}")
+            
+        return jsonify({
+            "response": warning_msg,
+            "warning_count": warning_count,
+            "session_cancelled": warning_count >= 3
+        })
 
+    print(f"✅ User {uid} passed all checks, processing normal message")
     history = get_conversation(uid)
 
     now = datetime.utcnow().replace(tzinfo=timezone.utc)
@@ -177,6 +263,24 @@ def chat():
     return jsonify({"response": bot_reply})
 
 
+@app.route("/debug/<user_id>", methods=["GET"])
+def debug_user(user_id):
+    """Debug endpoint to check user's warning count and status"""
+    warnings = get_warning_count(user_id)
+    is_banned = warnings >= 3
+    return jsonify({
+        "user_id": user_id,
+        "warning_count": warnings,
+        "is_banned": is_banned,
+        "message": f"User has {warnings} warnings, banned: {is_banned}"
+    })
+
+
+@app.route("/reset/<user_id>", methods=["POST"])
+def reset_user_warnings(user_id):
+    """Reset user's warning count (for testing)"""
+    reset_warning_count(user_id)
+    return jsonify({"message": f"Reset warnings for user {user_id}"})
 
 
 if __name__ == "__main__":

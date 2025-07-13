@@ -42,4 +42,52 @@ def get_user_language(user_id):
         return doc.to_dict().get("language", None)
     return None
 
+def increment_warning_count(user_id):
+    """Increment warning count for explicit language violations"""
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        current_warnings = doc.to_dict().get("warning_count", 0)
+        new_warnings = current_warnings + 1
+        doc_ref.set({"warning_count": new_warnings, "last_warning": datetime.utcnow().isoformat()}, merge=True)
+        return new_warnings
+    else:
+        doc_ref.set({"warning_count": 1, "last_warning": datetime.utcnow().isoformat()})
+        return 1
+
+def get_warning_count(user_id):
+    """Get current warning count for a user"""
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        return doc.to_dict().get("warning_count", 0)
+    return 0
+
+def reset_warning_count(user_id):
+    """Reset warning count (for new sessions)"""
+    doc_ref = db.collection("users").document(user_id)
+    doc_ref.set({"warning_count": 0}, merge=True)
+
+def is_session_cancelled(user_id):
+    """Check if user's session is cancelled due to too many warnings"""
+    warning_count = get_warning_count(user_id)
+    return warning_count >= 3
+
+def flag_user_as_banned(user_id):
+    """Flag user as permanently banned in the database"""
+    doc_ref = db.collection("users").document(user_id)
+    doc_ref.set({
+        "is_banned": True,
+        "banned_at": datetime.utcnow().isoformat(),
+        "warning_count": 3
+    }, merge=True)
+
+def is_user_banned(user_id):
+    """Check if user is permanently banned"""
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        return doc.to_dict().get("is_banned", False)
+    return False
+
 
