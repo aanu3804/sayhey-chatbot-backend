@@ -1,17 +1,8 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
-import os
-import json
 
-# Load Firebase credentials from environment variable
-firebase_key = os.environ.get("FIREBASE_KEY")
-if not firebase_key:
-    raise ValueError("Missing FIREBASE_KEY environment variable")
-
-# Parse the JSON string into a Python dictionary
-cred_dict = json.loads(firebase_key)
-cred = credentials.Certificate(cred_dict)
+cred = credentials.Certificate("firebase-key.json")
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -53,7 +44,7 @@ def get_user_language(user_id):
     if doc.exists:
         return doc.to_dict().get("language", None)
     return None
-<<<<<<< HEAD
+
 
 def increment_warning_count(user_id):
     """Increment warning count for explicit language violations"""
@@ -86,23 +77,3 @@ def is_session_cancelled(user_id):
     warning_count = get_warning_count(user_id)
     return warning_count >= 3
 
-def flag_user_as_banned(user_id):
-    """Flag user as permanently banned in the database"""
-    doc_ref = db.collection("users").document(user_id)
-    doc_ref.set({
-        "is_banned": True,
-        "banned_at": datetime.utcnow().isoformat(),
-        "warning_count": 3
-    }, merge=True)
-
-def is_user_banned(user_id):
-    """Check if user is permanently banned"""
-    doc_ref = db.collection("users").document(user_id)
-    doc = doc_ref.get()
-    if doc.exists:
-        return doc.to_dict().get("is_banned", False)
-    return False
-
-
-=======
->>>>>>> e95fe1b44ef6dd1ad39e8bb18eec43b39cbf6721
