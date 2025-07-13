@@ -1,0 +1,8 @@
+flask 
+flask-cors
+firebase-admin 
+python-dotenv 
+requests
+transformers 
+sentencepiece 
+torch
