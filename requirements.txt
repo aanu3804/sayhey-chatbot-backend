@@ -6,8 +6,6 @@ requests
 transformers 
 sentencepiece 
 torch
-<<<<<<< HEAD
 gunicorn
-=======
-gunicorn
->>>>>>> e95fe1b44ef6dd1ad39e8bb18eec43b39cbf6721
+
+
