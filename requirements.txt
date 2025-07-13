@@ -6,3 +6,4 @@ requests
 transformers 
 sentencepiece 
 torch
+gunicorn
