@@ -1,18 +1,8 @@
-# Render deploy cache bust
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
-import os
-import json
 
-# Load Firebase credentials from environment variable
-firebase_key = os.environ.get("FIREBASE_KEY")
-if not firebase_key:
-    raise ValueError("Missing FIREBASE_KEY environment variable")
-
-# Parse the JSON string into a Python dictionary
-cred_dict = json.loads(firebase_key)
-cred = credentials.Certificate(cred_dict)
+cred = credentials.Certificate("firebase-key.json")
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
@@ -54,3 +44,36 @@ def get_user_language(user_id):
     if doc.exists:
         return doc.to_dict().get("language", None)
     return None
+
+
+def increment_warning_count(user_id):
+    """Increment warning count for explicit language violations"""
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        current_warnings = doc.to_dict().get("warning_count", 0)
+        new_warnings = current_warnings + 1
+        doc_ref.set({"warning_count": new_warnings, "last_warning": datetime.utcnow().isoformat()}, merge=True)
+        return new_warnings
+    else:
+        doc_ref.set({"warning_count": 1, "last_warning": datetime.utcnow().isoformat()})
+        return 1
+
+def get_warning_count(user_id):
+    """Get current warning count for a user"""
+    doc_ref = db.collection("users").document(user_id)
+    doc = doc_ref.get()
+    if doc.exists:
+        return doc.to_dict().get("warning_count", 0)
+    return 0
+
+def reset_warning_count(user_id):
+    """Reset warning count (for new sessions)"""
+    doc_ref = db.collection("users").document(user_id)
+    doc_ref.set({"warning_count": 0}, merge=True)
+
+def is_session_cancelled(user_id):
+    """Check if user's session is cancelled due to too many warnings"""
+    warning_count = get_warning_count(user_id)
+    return warning_count >= 3
+
