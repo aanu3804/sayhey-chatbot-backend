@@ -1,12 +1,21 @@
+import os
+import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
-import os
 
+# Step 1: Load JSON from environment variable
+firebase_key_json = os.environ["FIREBASE_KEY"]
 
-cred = credentials.Certificate(os.environ["FIREBASE_KEY"])
+# Step 2: Write it to a temporary file
+with open("firebase-key.json", "w") as f:
+    f.write(firebase_key_json)
+
+# Step 3: Load credentials from the file
+cred = credentials.Certificate("firebase-key.json")
 firebase_admin.initialize_app(cred)
 
+# Step 4: Continue as normal
 db = firestore.client()
 
 def store_message(user_id, sender, message):
