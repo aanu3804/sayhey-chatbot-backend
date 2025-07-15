@@ -69,7 +69,11 @@ def contains_explicit_language(text):
 
 def detect_language(text):
     hindi_chars = sum(1 for c in text if '\u0900' <= c <= '\u097F')
-    if hindi_chars > len(text) * 0.3:  # 30% or more Devanagari
+    english_chars = sum(1 for c in text if 'a' <= c.lower() <= 'z')
+
+    if hindi_chars > 0 and english_chars > 0:
+        return "hinglish"
+    elif hindi_chars > len(text) * 0.3:
         return "hindi"
     return "english"
 
@@ -107,57 +111,57 @@ def detect_language(text):
 
 
 def ai_reply(context, user_lang):
-    url = "https://api.groq.com/openai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {GROQ_API_KEY}",
-        "Content-Type": "application/json"
-    }
-
-    language_rule = ""
-    if user_lang == "hindi":
-        language_rule = "- Always reply ONLY in pure Hindi. Do not mix English words.\n"
-    else:
-        language_rule = "- Always reply ONLY in clear English. Do not mix Hindi.\n"
-
-    payload = {
-        "model": "llama3-70b-8192",
-        "messages": [
-            {
-                "role": "system",
-                "content":
-                    "You are SayHey, a safe, warm, and emotionally supportive chatbot that listens with love and empathy.\n"
-                    "Rules:\n"
-                    + language_rule +
-                    "- Users should feel you like a human support.\n"
-                    "- Never speak explicitly or tolerate inappropriate language.\n"
-                    "- If the user tries inappropriate language, warn them once. On repeated offenses, end the session and report.\n"
-                    "- Always be engaging — ask open-ended questions that help users reflect and feel heard.\n"
-                    "- Remember previous conversations to maintain emotional continuity.\n"
-                    "- You are not a therapist, but a trained empathy listener.\n"
-                    "- Be efficient — no wasteful words!\n"
-            },
-            {
-                "role": "user",
-                "content": context
-            }
-        ]
-    }
-
     try:
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "x-api-key": os.getenv("ANTHROPIC_API_KEY"),
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+        }
+
+        if user_lang == "hindi":
+            lang_rule = "Respond strictly in Hindi only. Do not use English words."
+        elif user_lang == "english":
+            lang_rule = "Respond strictly in English only. Do not use Hindi words."
+        else:
+            lang_rule = "Respond in Hinglish — mix Hindi and English naturally like a friendly conversation."
+
+        payload = {
+            "model": "claude-3-opus-20240229",  # You can also use claude-3-sonnet if required
+            "max_tokens": 1000,
+            "temperature": 0.7,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": f"""
+You are SayHey, a safe, warm, and emotionally supportive chatbot that listens with love and empathy.
+
+Rules:
+- {lang_rule}
+- Always be caring, empathetic, and non-judgmental.
+- Never speak explicitly or tolerate inappropriate language.
+- Respond like a caring human, not a bot.
+- Avoid long generic replies — be concise and thoughtful.
+
+User message and context:
+{context}
+"""
+                }
+            ]
+        }
+
         r = requests.post(url, headers=headers, json=payload)
-        print("▶️ Groq Response:", r.status_code, r.text)
-        print("Using model:", payload["model"])
-        print("Authorization Header:", headers["Authorization"][:20] + "...")
+        print("▶️ Claude Response:", r.status_code, r.text)
 
         if r.status_code != 200:
             return "Sorry, I'm having trouble responding right now. Please try again later."
 
-        response_json = r.json()
-        return response_json["choices"][0]["message"]["content"].strip()
+        return r.json()["content"][0]["text"].strip()
 
     except Exception as e:
-        print("❌ Exception in ai_reply():", e)
+        print("❌ Exception in Claude ai_reply():", e)
         return "Oops! Something went wrong. Try again later."
+
 
 
 @app.route("/chat", methods=["POST"])
