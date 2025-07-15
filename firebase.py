@@ -2,7 +2,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 
-cred = credentials.Certificate(FIREBASE_KEY)
+cred = credentials.Certificate(os.environ["FIREBASE_KEY"])
 firebase_admin.initialize_app(cred)
 
 db = firestore.client()
