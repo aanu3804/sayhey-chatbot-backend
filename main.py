@@ -118,7 +118,7 @@ def ai_reply(context, user_lang):
             "anthropic-version": "2023-06-01",
             "content-type": "application/json"
         }
-
+        print("API Key:", os.getenv("ANTHROPIC_API_KEY"))
         if user_lang == "hindi":
             lang_rule = "Respond strictly in Hindi only. Do not use English words."
         elif user_lang == "english":
@@ -127,7 +127,7 @@ def ai_reply(context, user_lang):
             lang_rule = "Respond in Hinglish — mix Hindi and English naturally like a friendly conversation."
 
         payload = {
-            "model": "claude-3-opus-20240229",  # You can also use claude-3-sonnet if required
+            "model": "claude-3-haiku-20240307", # You can also use claude-3-sonnet if required
             "max_tokens": 1000,
             "temperature": 0.7,
             "messages": [
