@@ -67,15 +67,42 @@ def contains_explicit_language(text):
         # Fallback to basic check if AI fails
         return any(bad_word in text.lower() for bad_word in BAD_WORDS)
 
-def detect_language(text):
-    hindi_chars = sum(1 for c in text if '\u0900' <= c <= '\u097F')
-    english_chars = sum(1 for c in text if 'a' <= c.lower() <= 'z')
-
-    if hindi_chars > 0 and english_chars > 0:
-        return "hinglish"
-    elif hindi_chars > len(text) * 0.3:
-        return "hindi"
-    return "english"
+def ai_detect_language(text):
+    """Use AI to detect if the text is English, Hindi, or Hinglish (Hindi in Latin script)"""
+    try:
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        prompt = (
+            "You are a language detection system. Given the following message, respond with ONLY one word: 'english', 'hindi', or 'hinglish'. "
+            "Classify as 'hindi' if the message is in Devanagari script. "
+            "Classify as 'hinglish' if the message is in Latin script but uses Hindi/Indian words or mixes Hindi and English. "
+            "Classify as 'english' if the message is in English. "
+            "Message: '" + text + "'\nLanguage:"
+        )
+        payload = {
+            "model": "llama3-70b-8192",
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.1,
+            "max_tokens": 5
+        }
+        response = requests.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            result = response.json()["choices"][0]["message"]["content"].strip().lower()
+            print(f"🤖 AI Language Detection for '{text}': {result}")
+            if result in ["english", "hindi", "hinglish"]:
+                return result
+            return "english"  # fallback
+        else:
+            print(f"❌ AI language detection failed: {response.status_code}")
+            return "english"
+    except Exception as e:
+        print(f"❌ Exception in AI language detection: {e}")
+        return "english"
 
 # def ai_reply(context, user_lang):
 #     try:
@@ -129,10 +156,9 @@ Never include actions like *smiles* or *laughs*. Just speak.
 Speak only in English. Do not include any Hindi words. Use casual, relaxed tone like a human.
 Avoid asterisked actions like *says softly*, *grins*, etc.
 """
-        else:
+        elif user_lang == "hinglish":
             lang_rule = """
-Speak in Hinglish — mix Hindi and English naturally like Indian youth do. Use words like "yaar", "bhai", "mast", etc.
-No *star-marked actions*. Just talk. Short, cool, real.
+Speak in Hinglish — the letters should be in english and the words should be in hindi like Kya kar rha hai,Kaisa hai.
 """
 
 
@@ -146,11 +172,10 @@ Respond casually like a friend, and follow all these rules **STRICTLY**:
 
 General Rules:
 - Never say you're an AI, chatbot, or assistant.
+- *Don't Overreact!!*. You are just a empathic listener.Just behave like that only.
 - Never use asterisks like *laughs*, *smiles*, etc. Just speak plainly.
 - Keep messages short and natural — like 1-3 sentences max.
-- Use emojis like 🙂😂😅 only if it feels natural (don't overuse).
-- Don’t overexplain. Be chill, expressive, and relatable.
-- Treat the user like your close friend — relaxed tone, no formality.
+- Don’t overexplain. Be like a 100% empathic listerner.
 - Give as less words as possible.
 
 Here’s the latest message and context:
@@ -251,7 +276,8 @@ def chat():
             is_new_session = False
 
 
-    detected_lang = detect_language(user_msg)
+    # Replace detect_language with ai_detect_language
+    detected_lang = ai_detect_language(user_msg)
     store_user_language(uid, detected_lang)
 
     # Get latest saved preference
