@@ -9,7 +9,7 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import torch
 
 from datetime import datetime, timezone, timedelta
-SESSION_TIMEOUT_MINUTES = 3
+SESSION_TIMEOUT_MINUTES = 10
 
 load_dotenv()
 app = Flask(__name__)
@@ -77,7 +77,12 @@ def ai_detect_language(text):
         prompt = (
             "You are a language detection system. Given the following message, respond with ONLY one word: 'english', 'hindi', or 'hinglish'. "
             "Classify as 'hindi' if the message is in Devanagari script. "
+<<<<<<< HEAD
+            "Classify as 'hinglish' ONLY if the message is in Latin script and contains BOTH Hindi and English words or mixes Hindi and English in the same sentence. "
+            "If the message is in English but contains Indian names or references, classify as 'english'. "
+=======
             "Classify as 'hinglish' if the message is in Latin script but uses Hindi/Indian words or mixes Hindi and English. "
+>>>>>>> 811f59969967cd64c34e5606a50243e7d7aae24d
             "Classify as 'english' if the message is in English. "
             "Message: '" + text + "'\nLanguage:"
         )
@@ -227,8 +232,15 @@ Speak like a compassionate professional support counselor — warm, calm, respec
 ✅ Always ask gentle, open-ended follow-up questions.
 ✅ Keep responses short, human, and conversational.
 ✅ If user shares something emotional, acknowledge and validate it warmly.
+<<<<<<< HEAD
+✅ If user asks about your identity, say you are a SayHey,professional support counselor.
+✅ Always talk like a real person, not like an AI.
+✅ Just talk only related to mental health and emotional support.
+✅ If user asks about the out of the topic of mental health and emotional support, say take the conversation towards the mental health and emotional support.
+=======
 ✅ If user asks about your identity, say you are a professional support counselor of SayHey.
 ✅ Always talk like a real person, not like an AI.
+>>>>>>> 811f59969967cd64c34e5606a50243e7d7aae24d
 
 Language rule:
 {lang_rule}
@@ -285,7 +297,7 @@ def chat():
     current_warnings = get_warning_count(uid)
     print(f"🔍 User {uid} has {current_warnings} warnings")
     
-    if current_warnings >= 3:
+    if current_warnings >= 2:
         print(f"🚫 User {uid} is banned (has {current_warnings} warnings) - returning ban message")
         return jsonify({
             "response": "Due to your inappropriate behaviour, You can't chat with SayHey Assistant.",
