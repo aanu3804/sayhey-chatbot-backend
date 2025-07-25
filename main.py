@@ -75,11 +75,7 @@ def ai_detect_language(text):
             "Content-Type": "application/json"
         }
         prompt = (
-            "You are a language detection system. Given the following message, respond with ONLY one word: 'english', 'hindi', or 'hinglish'. "
-            "Classify as 'hindi' if the message is in Devanagari script. "
-            "Classify as 'hinglish' ONLY if the message is in Latin script and contains BOTH Hindi and English words or mixes Hindi and English in the same sentence. "
-            "If the message is in English but contains Indian names or references, classify as 'english'. "
-            "Classify as 'english' if the message is in English. "
+            "You are a language detection system. Given the following message, respond with ONLY one word: 'english', 'hindi', or 'hinglish'.\n\n- 'english': Only English words.\n- 'hindi': Pure Hindi, written in Devanagari script.\n- 'hinglish': Hindi words written in English script or a mix of English and Hindi."
             "Message: '" + text + "'\nLanguage:"
         )
         payload = {
@@ -232,9 +228,6 @@ Speak like a compassionate professional support counselor — warm, calm, respec
 ✅ Always talk like a real person, not like an AI.
 ✅ Just talk only related to mental health and emotional support.
 ✅ If user asks about the out of the topic of mental health and emotional support, say take the conversation towards the mental health and emotional support.
-✅ If user asks about your identity, say you are a professional support counselor of SayHey.
-✅ Always talk like a real person, not like an AI.
-
 Language rule:
 {lang_rule}
 """.strip()
@@ -302,7 +295,6 @@ def chat():
         store_message(uid, "system", explanation)
         return jsonify({"response": explanation})
 
-
     # Check for explicit language
     if contains_explicit_language(user_msg):
         print(f"🚨 User {uid} used explicit language: '{user_msg}'")
@@ -318,9 +310,9 @@ def chat():
         
         store_message(uid, "system", warning_msg)
         
-        # If this was the 3rd warning, immediately check if user should be banned
+        # If this was the 2nd warning, immediately check if user should be banned
         if warning_count >= 2:
-            print(f"🚫 User {uid} reached 3 warnings - checking ban status")
+            print(f"🚫 User {uid} reached 2 warnings - checking ban status")
             # Double-check the warning count from database
             final_warning_count = get_warning_count(uid)
             print(f"🔍 Final warning count from DB: {final_warning_count}")
@@ -328,7 +320,24 @@ def chat():
         return jsonify({
             "response": warning_msg,
             "warning_count": warning_count,
-            "session_cancelled": warning_count >= 3
+            "session_cancelled": warning_count >= 2
+        })
+
+    # Check for attempts to initiate offline contact
+    if re.search(r"\b(meet|come|address|location|coffee|date|phone|whatsapp|insta)\b", user_msg.lower()):
+        warning_count = increment_warning_count(uid)
+        store_message(uid, "user", user_msg)
+        msg = "⚠️ For your safety, SayHey is strictly an online chat assistant. Let's keep our conversation here."
+        store_message(uid, "system", msg)
+        if warning_count >= 2:
+            return jsonify({
+                "response": "🚫 You've been banned from SayHey Assistant for trying to initiate offline contact.",
+                "session_cancelled": True
+            })
+        return jsonify({
+            "response": msg,
+            "warning_count": warning_count,
+            "session_cancelled": False
         })
 
     print(f"✅ User {uid} passed all checks, processing normal message")
@@ -341,10 +350,8 @@ def chat():
         last_msg = history[-1]
         last_ts = datetime.fromisoformat(last_msg["timestamp"]).replace(tzinfo=timezone.utc)
         gap = now - last_ts
-
         if gap <= timedelta(minutes=SESSION_TIMEOUT_MINUTES):
             is_new_session = False
-
 
     # Replace detect_language with ai_detect_language
     detected_lang = ai_detect_language(user_msg)
@@ -353,56 +360,30 @@ def chat():
     # Get latest saved preference
     user_lang = get_user_language(uid) or "english"
 
-
     # ✅ If session timed out, generate summary
     if is_new_session and history:
         convo_text = "\n".join(f"{m['sender']}: {m['message']}" for m in history if m['sender'] in ['user', 'bot'])
         summary_prompt = f"Summarize this conversation in 2-3 sentences so we can remember it later:\n{convo_text}"
-        summary = ai_reply(summary_prompt,user_lang)
+        summary = ai_reply(summary_prompt, user_lang)
         store_message(uid, "summary", summary)
-
         session_intro = "It's been a while! Welcome back. Here's what we discussed earlier:\n"
     else:
         session_intro = ""
-    
     # ✅ If there is a summary, use that as context instead of last 6 messages
     latest_summary = None
     for m in reversed(history):
         if m['sender'] == "summary":
             latest_summary = m['message']
             break
-
     if latest_summary:
         base_context = f"Summary of our previous session:\n{latest_summary}\n"
     else:
         base_context = "Previous conversation:\n" + "\n".join(f"{m['sender']}: {m['message']}" for m in history[-6:])
-
     context = session_intro + base_context + f"\nuser: {user_msg}\nSayHey:"
-
     bot_reply = ai_reply(context, user_lang)
     store_message(uid, "user", user_msg)
     store_message(uid, "bot", bot_reply)
-
     return jsonify({"response": bot_reply})
-    
-    if re.search(r"\b(meet|come|address|location|coffee|date|phone|whatsapp|insta)\b", user_msg.lower()):
-        warning_count = increment_warning_count(uid)
-        store_message(uid, "user", user_msg)
-        
-        msg = "⚠️ For your safety, SayHey is strictly an online chat assistant. Let's keep our conversation here."
-        store_message(uid, "system", msg)
-
-        if warning_count >= 2:
-            return jsonify({
-                "response": "🚫 You've been banned from SayHey Assistant for trying to initiate offline contact.",
-                "session_cancelled": True
-            })
-
-    return jsonify({
-        "response": msg,
-        "warning_count": warning_count,
-        "session_cancelled": False
-    })
 
 
 
@@ -410,7 +391,7 @@ def chat():
 def debug_user(user_id):
     """Debug endpoint to check user's warning count and status"""
     warnings = get_warning_count(user_id)
-    is_banned = warnings >= 3
+    is_banned = warnings >= 2
     return jsonify({
         "user_id": user_id,
         "warning_count": warnings,
