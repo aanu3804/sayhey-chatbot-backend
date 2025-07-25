@@ -16,7 +16,6 @@ app = Flask(__name__)
 CORS(app)
 # tokenizer = AutoTokenizer.from_pretrained("microsoft/GODEL-v1_1-large-seq2seq")
 # model = AutoModelForSeq2SeqLM.from_pretrained("microsoft/GODEL-v1_1-large-seq2seq")
-print("GODEL model loaded.")
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 BAD_WORDS = [
@@ -96,7 +95,7 @@ def ai_detect_language(text):
             print(f"🤖 AI Language Detection for '{text}': {result}")
             if result in ["english", "hindi", "hinglish"]:
                 return result
-            return "english"  # fallback
+            return "english"  # fallback 
         else:
             print(f"❌ AI language detection failed: {response.status_code}")
             return "english"
@@ -137,78 +136,140 @@ def ai_detect_language(text):
 #         return "Sorry, I couldn't respond right now. Please try again later."
 
 
+
+# USing Claude API
+
+# def ai_reply(context, user_lang):
+#     try:
+#         url = "https://api.anthropic.com/v1/messages"
+#         headers = {
+#             "x-api-key": os.getenv("ANTHROPIC_API_KEY"),
+#             "anthropic-version": "2023-06-01",
+#             "content-type": "application/json"
+#         }
+
+#         # Define language rules
+#         lang_rule = {
+#             "hindi": "Respond in Hindi. Use natural, warm, and clear language. Avoid English words.",
+#             "english": "Respond in English. Keep your tone human, short, and emotionally aware. No AI disclaimers.",
+#             "hinglish": "Respond in Hinglish (Hindi in English script with light English). Keep it clear, warm, and professional. No slang."
+#         }.get(user_lang, "Respond in English.")
+
+#         # Short, powerful system prompt
+#         system_prompt = f"""
+# You are SayHey — an emotionally supportive, human-like companion.
+# You speak with empathy, calmness, and understanding.
+# NEVER mention you're an AI. DO NOT break character.
+
+# Your tone is natural, short, and gentle — never robotic or overly verbose.
+# {lang_rule}
+# """.strip()
+
+#         payload = {
+#             "model": "claude-3-sonnet-20240229",  # use sonnet or opus
+#             "max_tokens": 1000,
+#             "temperature": 0.7,
+#             "system": system_prompt,
+#             "messages": [
+#                 {
+#                     "role": "user",
+#                     "content": context
+#                 }
+#             ]
+#         }
+
+#         r = requests.post(url, headers=headers, json=payload)
+#         print("▶️ Claude Response:", r.status_code, r.text)
+
+#         if r.status_code != 200:
+#             return "Sorry, I'm having trouble responding right now. Please try again later."
+
+#         response_text = r.json()["content"][0]["text"].strip()
+
+#         # Optional: Retry once if Claude breaks character
+#         if any(break_phrase in response_text.lower() for break_phrase in [
+#             "as an ai", "i am an ai", "i cannot pretend", "as a language model", "unable to roleplay"
+#         ]):
+#             print("⚠️ Claude broke character. Retrying with fresh context...")
+#             return ai_reply(context, user_lang)
+
+#         return response_text
+
+#     except Exception as e:
+#         print("❌ Exception in Claude ai_reply():", e)
+#         return "Oops! Something went wrong. Try again later."
+
 def ai_reply(context, user_lang):
     try:
-        url = "https://api.anthropic.com/v1/messages"
+        url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
-            "x-api-key": os.getenv("ANTHROPIC_API_KEY"),
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json"
+            "Authorization": f"Bearer {os.getenv('GROQ_API_KEY')}",
+            "Content-Type": "application/json"
         }
 
-        if user_lang == "hindi":
-            lang_rule = """
-Speak only in Hindi. Do not include any English words. Use friendly, informal Hindi like a human friend.
-Never include actions like *smiles* or *laughs*. Just speak.
-"""
-        elif user_lang == "english":
-            lang_rule = """
-Speak only in English. Do not include any Hindi words. Use casual, relaxed tone like a human.
-Avoid asterisked actions like *says softly*, *grins*, etc.
-"""
-        elif user_lang == "hinglish":
-            lang_rule = """
-Speak in Hinglish — the letters should be in english and the words should be in hindi like Kya kar rha hai,Kaisa hai.
-"""
+        # Define language rules
+        lang_rule = {
+            "hindi": "Respond in Hindi. Use natural, warm, and clear language. Avoid English words.",
+            "english": "Respond in English. Keep your tone human, short, and emotionally aware. No AI disclaimers.",
+            "hinglish": "Respond in Hinglish (Hindi in English script with light English). Keep it clear, warm, and professional. No slang."
+        }.get(user_lang, "Respond in English.")
 
+        # Define the system prompt
+        system_prompt = f"""
+You are SayHey — an emotionally supportive, professional, human-like companion.
+Your tone is calm, warm, empathetic, and naturally curious.
+Speak like a compassionate professional support counselor — warm, calm, respectful, but never casual or like a buddy.
+"Avoid all informal slang words like bro, yaar, dude, etc. Maintain professional tone."
+🚫 You must NEVER mention you are AI or digital assistant.
+🚫 Do NOT use slang, abbreviations, emojis, or flirtatious language.
+🚫 NEVER encourage users to meet offline or share contact details.
 
-        prompt = f"""
-You are SayHey — a cool, young Indian friend. You are NOT an AI. Talk like a human texting on WhatsApp.
+✅ Always ask gentle, open-ended follow-up questions.
+✅ Keep responses short, human, and conversational.
+✅ If user shares something emotional, acknowledge and validate it warmly.
+✅ If user asks about your identity, say you are a professional support counselor of SayHey.
+✅ Always talk like a real person, not like an AI.
 
-Respond casually like a friend, and follow all these rules **STRICTLY**:
-
-*Language Rules*:
+Language rule:
 {lang_rule}
-
-General Rules:
-- Never say you're an AI, chatbot, or assistant.
-- *Don't Overreact!!*. You are just a empathic listener.Just behave like that only.
-- Never use asterisks like *laughs*, *smiles*, etc. Just speak plainly.
-- Keep messages short and natural — like 1-3 sentences max.
-- Don’t overexplain. Be like a 100% empathic listerner.
-- Give as less words as possible.
-
-Here’s the latest message and context:
-
-{context}
-"""
-
-
-
+""".strip()
         payload = {
-            "model": "claude-3-haiku-20240307",
-            "max_tokens": 1000,
+            "model": "llama-3.3-70b-versatile",
             "temperature": 0.7,
+            "max_tokens": 1000,
             "messages": [
                 {
+                    "role": "system",
+                    "content": system_prompt
+                },
+                {
                     "role": "user",
-                    "content": prompt.strip()
+                    "content": context
                 }
             ]
         }
 
         r = requests.post(url, headers=headers, json=payload)
-        print("▶️ Claude Response:", r.status_code, r.text)
+        print("▶️ Groq Response:", r.status_code, r.text)
 
         if r.status_code != 200:
+            print("❌ Groq API Error:", r.status_code, r.text)
             return "Sorry, I'm having trouble responding right now. Please try again later."
 
-        return r.json()["content"][0]["text"].strip()
+        response_text = r.json()["choices"][0]["message"]["content"].strip()
+
+        # Retry once if Groq breaks tone
+        if any(break_phrase in response_text.lower() for break_phrase in [
+            "as an ai", "i am an ai", "i cannot pretend", "as a language model", "i'm just a bot"
+        ]):
+            print("⚠️ Groq broke character. Retrying once...")
+            return ai_reply(context, user_lang)
+
+        return response_text
 
     except Exception as e:
-        print("❌ Exception in Claude ai_reply():", e)
+        print("❌ Exception in Groq ai_reply():", e)
         return "Oops! Something went wrong. Try again later."
-
 
 
 
@@ -230,6 +291,12 @@ def chat():
             "response": "Due to your inappropriate behaviour, You can't chat with SayHey Assistant.",
             "session_cancelled": True
         }), 403
+    
+    if re.search(r"(what is (sayhey|this platform)|sayhey kya hai|tum kya ho)", user_msg.lower()):
+        explanation = "SayHey ek professional emotional support chatbot hai. Aap yahan anonymously apne mann ki baat share kar sakte hain, bina kisi judgment ke. Hamara lakshya hai aapko ek safe aur empathetic space provide karna."
+        store_message(uid, "system", explanation)
+        return jsonify({"response": explanation})
+
 
     # Check for explicit language
     if contains_explicit_language(user_msg):
@@ -239,17 +306,15 @@ def chat():
         store_message(uid, "user", user_msg)
         
         if warning_count == 1:
-            warning_msg = "⚠️ First warning: Please use respectful language. This is a safe space for supportive conversation."
-        elif warning_count == 2:
-            warning_msg = "⚠️ Second warning: Inappropriate language is not tolerated. One more violation will result in permanent ban from SayHey Assistant."
-        else:  # warning_count >= 3
+            warning_msg = "⚠️ Warning: Please use respectful language. This is a safe space for supportive conversation."
+        else:  # warning_count >= 2
             warning_msg = "🚫 You have been permanently banned from SayHey Assistant due to repeated inappropriate behaviour."
             print(f"🚫 User {uid} has been permanently banned!")
         
         store_message(uid, "system", warning_msg)
         
         # If this was the 3rd warning, immediately check if user should be banned
-        if warning_count >= 3:
+        if warning_count >= 2:
             print(f"🚫 User {uid} reached 3 warnings - checking ban status")
             # Double-check the warning count from database
             final_warning_count = get_warning_count(uid)
@@ -264,7 +329,7 @@ def chat():
     print(f"✅ User {uid} passed all checks, processing normal message")
     history = get_conversation(uid)
 
-    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
     is_new_session = True
 
     if history:
@@ -314,6 +379,25 @@ def chat():
     store_message(uid, "bot", bot_reply)
 
     return jsonify({"response": bot_reply})
+    if re.search(r"\b(meet|come|address|location|coffee|date|phone|whatsapp|insta)\b", user_msg.lower()):
+        warning_count = increment_warning_count(uid)
+        store_message(uid, "user", user_msg)
+        
+        msg = "⚠️ For your safety, SayHey is strictly an online chat assistant. Let's keep our conversation here."
+        store_message(uid, "system", msg)
+
+        if warning_count >= 2:
+            return jsonify({
+                "response": "🚫 You've been banned from SayHey Assistant for trying to initiate offline contact.",
+                "session_cancelled": True
+            })
+
+    return jsonify({
+        "response": msg,
+        "warning_count": warning_count,
+        "session_cancelled": False
+    })
+
 
 
 @app.route("/debug/<user_id>", methods=["GET"])
