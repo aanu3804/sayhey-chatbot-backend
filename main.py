@@ -147,7 +147,16 @@ def ai_detect_language(text):
 
 #         # Define language rules
 #         lang_rule = {
-#             "hindi": "Respond in conversational Hindi. Use natural, clear, and friendly tone. Prefer commonly spoken words and expressions. Avoid using very formal or pure Hindi words. It’s okay to use commonly understood English terms if they sound more natural.",
+#             "hindi": (
+    "Reply in very casual and simple spoken Hindi like a friend is talking. "
+    "Use words like 'tension', 'feel', 'problem', 'help', 'bol', 'bata', 'theek', etc. "
+    "Avoid formal, poetic, or shuddh Hindi words like 'chintit', 'ehsaas', 'koshish', 'mann mein', etc. "
+    "Mix common English words naturally. "
+    "Examples:\n"
+    "❌ Bad: 'Main aapki baat sunne ke liye yahaan hoon aur aapki har baat ko samajhne ki koshish karunga.'\n"
+    "✅ Good: 'Main hoon na yaar, tu bata kya chal raha hai. Kya dikkat hai? Feel kyu nahi ho raha acha?'\n"
+    "Keep it very simple, like daily life conversation, not like a school textbook."
+),
 #             "english": "Respond in English. Keep your tone human, short, and emotionally aware. No AI disclaimers.",
 #             "hinglish": "Respond in Hinglish (Hindi in English script with light English). Keep it clear, warm, and professional. No slang."
 #         }.get(user_lang, "Respond in English.")
