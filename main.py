@@ -147,7 +147,7 @@ def ai_detect_language(text):
 
 #         # Define language rules
 #         lang_rule = {
-#             "hindi": "Respond in Hindi. Use natural, warm, and clear language. Avoid English words.",
+#             "hindi": "Respond in conversational Hindi. Use natural, clear, and friendly tone. Prefer commonly spoken words and expressions. Avoid using very formal or pure Hindi words. It’s okay to use commonly understood English terms if they sound more natural.",
 #             "english": "Respond in English. Keep your tone human, short, and emotionally aware. No AI disclaimers.",
 #             "hinglish": "Respond in Hinglish (Hindi in English script with light English). Keep it clear, warm, and professional. No slang."
 #         }.get(user_lang, "Respond in English.")
@@ -206,7 +206,7 @@ def ai_reply(context, user_lang):
 
         # Define language rules
         lang_rule = {
-            "hindi": "Respond in Hindi. Use natural, warm, and clear language. Avoid English words.",
+            "hindi": "Respond in conversational Hindi. Use natural, clear, and friendly tone. Prefer commonly spoken words and expressions. Avoid using very formal or pure Hindi words. It’s okay to use commonly understood English terms if they sound more natural.",
             "english": "Respond in English. Keep your tone human, short, and emotionally aware. No AI disclaimers.",
             "hinglish": "Respond in Hinglish (Hindi in English script with light English). Keep it clear, warm, and professional. No slang."
         }.get(user_lang, "Respond in English.")
@@ -248,7 +248,7 @@ Language rule:
         }
 
         r = requests.post(url, headers=headers, json=payload)
-        print("▶️ Groq Response:", r.status_code, r.text)
+        print(" Groq Response:", r.status_code, r.text)
 
         if r.status_code != 200:
             print("❌ Groq API Error:", r.status_code, r.text)
